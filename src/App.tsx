@@ -12,7 +12,9 @@ import VisitasPage from "./pages/VisitasPage";
 import HallazgosPage from "./pages/HallazgosPage";
 import InformesPage from "./pages/InformesPage";
 import EmpresasPage from "./pages/EmpresasPage";
-import PlaceholderPage from "./components/PlaceholderPage";
+import CapacitacionesPage from "./pages/CapacitacionesPage";
+import GestionIAPage from "./pages/GestionIAPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,10 +34,10 @@ const App = () => (
             <Route path="/visitas" element={<VisitasPage />} />
             <Route path="/hallazgos" element={<HallazgosPage />} />
             <Route path="/informes" element={<InformesPage />} />
-            <Route path="/capacitaciones" element={<PlaceholderPage title="Capacitaciones" description="Gestión de capacitaciones SST con registro de asistentes, firmas digitales y generación de certificados." />} />
-            <Route path="/ia" element={<PlaceholderPage title="Gestión IA" description="Biblioteca de prompts, historial de interacciones con IA y análisis inteligente de evidencias de auditoría." />} />
+            <Route path="/capacitaciones" element={<CapacitacionesPage />} />
+            <Route path="/ia" element={<GestionIAPage />} />
             <Route path="/empresas" element={<EmpresasPage />} />
-            <Route path="/admin" element={<PlaceholderPage title="Administración" description="Panel de administración de la organización, gestión de usuarios, roles, permisos y configuración general." />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
