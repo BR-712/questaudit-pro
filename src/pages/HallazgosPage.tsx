@@ -27,6 +27,7 @@ export default function HallazgosPage() {
   const [wizardStep, setWizardStep] = useState(1);
   const [iaLoading, setIaLoading] = useState(false);
   const [iaResult, setIaResult] = useState(false);
+  const [iaDecision, setIaDecision] = useState<'accepted' | 'editing' | 'rejected' | null>(null);
 
   const filtered = hallazgos.filter(h => {
     const matchSearch = h.descripcion.toLowerCase().includes(search.toLowerCase()) ||
@@ -200,20 +201,19 @@ export default function HallazgosPage() {
         </div>
       )}
 
-      {/* New Finding Wizard */}
+      {/* New Finding Wizard — 2 pasos: Evidencias → IA analiza todo → Validar */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Nuevo Hallazgo</DialogTitle>
-            {/* Stepper */}
             <div className="flex items-center gap-2 mt-4">
-              {[1, 2, 3].map(step => (
+              {[1, 2].map(step => (
                 <div key={step} className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${wizardStep >= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>{step}</div>
                   <span className={`text-xs hidden sm:inline ${wizardStep >= step ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                    {step === 1 ? 'Evidencias' : step === 2 ? 'Clasificación' : 'Análisis IA'}
+                    {step === 1 ? 'Cargar Evidencias' : 'Análisis IA y Validación'}
                   </span>
-                  {step < 3 && <div className={`w-8 h-0.5 ${wizardStep > step ? 'bg-primary' : 'bg-muted'}`} />}
+                  {step < 2 && <div className={`w-12 h-0.5 ${wizardStep > step ? 'bg-primary' : 'bg-muted'}`} />}
                 </div>
               ))}
             </div>
@@ -221,7 +221,8 @@ export default function HallazgosPage() {
 
           {wizardStep === 1 && (
             <div className="space-y-4 mt-4">
-              <div className="border-2 border-dashed rounded-lg p-8 text-center">
+              <p className="text-sm text-muted-foreground">Sube las fotos o documentos de evidencia. La IA analizará automáticamente el contenido para generar la clasificación, descripción y recomendaciones del hallazgo.</p>
+              <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                 <Upload size={32} className="mx-auto text-muted-foreground mb-3" />
                 <p className="text-sm font-medium">Arrastra archivos aquí o selecciona</p>
                 <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, XLSX, XML, JPG, PNG</p>
@@ -232,142 +233,278 @@ export default function HallazgosPage() {
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {[1, 2].map(i => (
-                  <div key={i} className="relative aspect-square bg-muted rounded-md flex items-center justify-center">
+                  <div key={i} className="relative aspect-square bg-muted rounded-md flex items-center justify-center group">
                     <Image size={20} className="text-muted-foreground" />
-                    <button className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
+                    <span className="absolute bottom-1 left-1 text-[9px] text-muted-foreground bg-background/80 px-1 rounded">evidencia_{i}.jpg</span>
+                    <button className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <X size={10} />
                     </button>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-end"><Button variant="brand" onClick={() => setWizardStep(2)}>Siguiente</Button></div>
+              <div className="flex justify-end">
+                <Button variant="brand" onClick={() => { setWizardStep(2); handleAnalyze(); }}>
+                  <Brain size={14} className="mr-1" /> Analizar con IA
+                </Button>
+              </div>
             </div>
           )}
 
           {wizardStep === 2 && (
             <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Empresa</Label>
-                  <Select><SelectTrigger><SelectValue placeholder="Seleccionar empresa" /></SelectTrigger>
-                    <SelectContent>{[...new Map(hallazgos.map(h => [h.empresa.id, h.empresa])).values()].map(e => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>OC / Visita vinculada</Label>
-                  <Select><SelectTrigger><SelectValue placeholder="Seleccionar OC" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="oc1">OC-2026-001</SelectItem>
-                      <SelectItem value="oc2">OC-2026-002</SelectItem>
-                      <SelectItem value="oc3">OC-2026-003</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Área / Campo</Label>
-                  <Select><SelectTrigger><SelectValue placeholder="Seleccionar área" /></SelectTrigger>
-                    <SelectContent>{areasCampo.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Norma Aplicable</Label>
-                  <Select><SelectTrigger><SelectValue placeholder="Seleccionar norma" /></SelectTrigger>
-                    <SelectContent>{normasAplicables.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo de Hallazgo</Label>
-                <RadioGroup defaultValue="ncm" className="grid grid-cols-2 gap-2">
-                  {([['ncm', 'No Conformidad Mayor', 'destructive'], ['ncmin', 'No Conformidad Menor', 'warning'], ['obs', 'Observación', 'primary'], ['om', 'Oportunidad de Mejora', 'success']] as const).map(([val, label, color]) => (
-                    <div key={val} className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer hover:bg-muted/50">
-                      <RadioGroupItem value={val} id={val} />
-                      <Label htmlFor={val} className="cursor-pointer flex-1 text-sm">{label}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-              <div className="space-y-2">
-                <Label>Artículo / Requisito</Label>
-                <Select><SelectTrigger><SelectValue placeholder="Seleccionar artículo" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="art16">Art. 16</SelectItem>
-                    <SelectItem value="art25">Art. 25</SelectItem>
-                    <SelectItem value="art11">Art. 11</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Nivel de Riesgo</Label>
-                <RadioGroup defaultValue="medio" className="flex gap-3">
-                  {([['alto', 'Alto', 'text-destructive'], ['medio', 'Medio', 'text-warning'], ['bajo', 'Bajo', 'text-success']] as const).map(([val, label, color]) => (
-                    <div key={val} className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer hover:bg-muted/50">
-                      <RadioGroupItem value={val} id={`riesgo-${val}`} />
-                      <Label htmlFor={`riesgo-${val}`} className={`cursor-pointer text-sm font-medium ${color}`}>{label}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setWizardStep(1)}>Anterior</Button>
-                <Button variant="brand" onClick={() => setWizardStep(3)}>Siguiente</Button>
-              </div>
-            </div>
-          )}
+              {iaLoading && (
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardContent className="p-6 text-center space-y-3">
+                    <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
+                    <p className="text-sm font-medium">Analizando evidencias con IA...</p>
+                    <p className="text-xs text-muted-foreground">Clasificando hallazgo, identificando normas y generando recomendaciones</p>
+                  </CardContent>
+                </Card>
+              )}
 
-          {wizardStep === 3 && (
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Evidence preview */}
-                <div className="bg-muted rounded-lg aspect-video flex items-center justify-center">
-                  <Image size={48} className="text-muted-foreground" />
-                </div>
-                {/* IA Analysis */}
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label>Prompt de IA</Label>
-                    <Select defaultValue="sst">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sst">Predeterminado SST</SelectItem>
-                        <SelectItem value="calidad">Predeterminado Calidad</SelectItem>
-                        <SelectItem value="pesv">Predeterminado PESV</SelectItem>
-                        <SelectItem value="custom">Prompt personalizado</SelectItem>
-                      </SelectContent>
-                    </Select>
+              {iaResult && (
+                <>
+                  {/* Evidence preview */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 2].map(i => (
+                      <div key={i} className="aspect-square bg-muted rounded-md flex items-center justify-center">
+                        <Image size={16} className="text-muted-foreground" />
+                      </div>
+                    ))}
                   </div>
-                  <Button variant="brand" className="w-full" onClick={handleAnalyze} disabled={iaLoading}>
-                    <Brain size={14} className="mr-1" /> {iaLoading ? 'Analizando...' : 'Analizar con IA'}
-                  </Button>
-                  {iaResult && (
-                    <Card className="border-primary/50">
-                      <CardContent className="p-3 space-y-2">
-                        <p className="text-xs font-medium text-primary">Resultado del análisis</p>
-                        <p className="text-sm"><strong>Descripción:</strong> Falta de señalización de seguridad en área de excavación activa según Res. 0312/2019.</p>
-                        <p className="text-sm"><strong>Clasificación:</strong> No Conformidad Menor</p>
-                        <p className="text-sm"><strong>Norma:</strong> Res. 0312/2019 — Art. 25</p>
-                        <div className="flex gap-2 mt-2">
-                          <Button variant="success" size="sm"><Check size={12} className="mr-1" /> Aceptar</Button>
-                          <Button variant="warning" size="sm"><Pencil size={12} className="mr-1" /> Editar</Button>
-                          <Button variant="destructive" size="sm"><X size={12} className="mr-1" /> Rechazar</Button>
+
+                  {/* IA Result Card */}
+                  <Card className="border-primary/50 shadow-sm">
+                    <CardContent className="p-4 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Brain size={16} className="text-primary" />
+                        <p className="text-sm font-semibold text-primary">Resultado del Análisis IA</p>
+                        <Badge variant="outline" className="text-[10px] ml-auto">Análisis automático</Badge>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1 p-3 bg-muted/50 rounded-lg">
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-wider">Clasificación</p>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-orange-50 text-orange-700 border-orange-200">No Conformidad Menor</span>
+                        </div>
+                        <div className="space-y-1 p-3 bg-muted/50 rounded-lg">
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-wider">Nivel de Riesgo</p>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-yellow-50 text-yellow-700 border-yellow-200">Medio</span>
+                        </div>
+                        <div className="space-y-1 p-3 bg-muted/50 rounded-lg">
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-wider">Área / Campo</p>
+                          <p className="text-sm font-medium">Señalización</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 p-3 bg-muted/50 rounded-lg">
+                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-wider">Norma Aplicable</p>
+                        <p className="text-sm font-medium">Res. 0312/2019 — Art. 25</p>
+                        <p className="text-xs text-muted-foreground">Señalización, delimitación y demarcación de áreas</p>
+                      </div>
+
+                      <div className="space-y-1 p-3 bg-muted/50 rounded-lg">
+                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-wider">Descripción del Hallazgo</p>
+                        <p className="text-sm">Se evidencia la falta de señalización de seguridad en área de excavación activa. No se observan cintas de demarcación, conos ni avisos de peligro que adviertan al personal sobre los riesgos presentes en la zona de trabajo, incumpliendo lo establecido en la Res. 0312/2019, Art. 25.</p>
+                      </div>
+
+                      <div className="space-y-1 p-3 bg-muted/50 rounded-lg">
+                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-wider">Recomendaciones y Plan de Acción</p>
+                        <ul className="text-sm space-y-1 list-disc list-inside">
+                          <li>Instalar señalización vertical y horizontal en todas las zonas de excavación activa</li>
+                          <li>Demarcar perímetro con cinta de seguridad reflectiva y conos a máximo 2 metros de distancia</li>
+                          <li>Colocar avisos de peligro visibles con pictogramas según NTC 1461</li>
+                          <li>Capacitar al personal en identificación y reporte de áreas sin señalización</li>
+                          <li>Realizar inspecciones diarias antes del inicio de labores para verificar señalización</li>
+                        </ul>
+                      </div>
+
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button variant="success" size="sm" className="flex-1" onClick={() => setIaDecision('accepted')}>
+                          <Check size={12} className="mr-1" /> Aceptar Análisis
+                        </Button>
+                        <Button variant="warning" size="sm" className="flex-1" onClick={() => setIaDecision('editing')}>
+                          <Pencil size={12} className="mr-1" /> Editar
+                        </Button>
+                        <Button variant="destructive" size="sm" className="flex-1" onClick={() => setIaDecision('rejected')}>
+                          <X size={12} className="mr-1" /> Rechazar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Editable fields — shown when accepted or editing */}
+                  {(iaDecision === 'accepted' || iaDecision === 'editing') && (
+                    <Card>
+                      <CardContent className="p-4 space-y-4">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          {iaDecision === 'accepted' ? '✅ Análisis aceptado — revisa antes de guardar' : '✏️ Edita los campos según tu criterio'}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Empresa</Label>
+                            <Select defaultValue="emp1">
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>{empresasUnicas.map(e => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>OC / Visita vinculada</Label>
+                            <Select defaultValue="oc1">
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="oc1">OC-2026-001</SelectItem>
+                                <SelectItem value="oc2">OC-2026-002</SelectItem>
+                                <SelectItem value="oc3">OC-2026-003</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        {iaDecision === 'editing' && (
+                          <>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <Label>Clasificación</Label>
+                                <Select defaultValue="ncmin">
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="ncm">No Conformidad Mayor</SelectItem>
+                                    <SelectItem value="ncmin">No Conformidad Menor</SelectItem>
+                                    <SelectItem value="obs">Observación</SelectItem>
+                                    <SelectItem value="om">Oportunidad de Mejora</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Nivel de Riesgo</Label>
+                                <Select defaultValue="medio">
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="alto">Alto</SelectItem>
+                                    <SelectItem value="medio">Medio</SelectItem>
+                                    <SelectItem value="bajo">Bajo</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Área / Campo</Label>
+                                <Select defaultValue="Señalización">
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>{areasCampo.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Norma Aplicable</Label>
+                              <Select defaultValue="Res. 0312/2019">
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>{normasAplicables.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Descripción del hallazgo</Label>
+                              <Textarea rows={3} defaultValue="Se evidencia la falta de señalización de seguridad en área de excavación activa. No se observan cintas de demarcación, conos ni avisos de peligro que adviertan al personal sobre los riesgos presentes en la zona de trabajo, incumpliendo lo establecido en la Res. 0312/2019, Art. 25." />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Recomendaciones</Label>
+                              <Textarea rows={4} defaultValue={"• Instalar señalización vertical y horizontal en todas las zonas de excavación activa\n• Demarcar perímetro con cinta de seguridad reflectiva y conos a máximo 2 metros de distancia\n• Colocar avisos de peligro visibles con pictogramas según NTC 1461\n• Capacitar al personal en identificación y reporte de áreas sin señalización\n• Realizar inspecciones diarias antes del inicio de labores para verificar señalización"} />
+                            </div>
+                          </>
+                        )}
+                        <div className="space-y-2">
+                          <Label>Notas del auditor</Label>
+                          <Textarea placeholder="Observaciones adicionales del auditor..." rows={2} />
                         </div>
                       </CardContent>
                     </Card>
                   )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Descripción del hallazgo</Label>
-                <Textarea placeholder="Describe el hallazgo encontrado..." rows={3} defaultValue={iaResult ? 'Falta de señalización de seguridad en área de excavación activa según Res. 0312/2019.' : ''} />
-              </div>
-              <div className="space-y-2">
-                <Label>Notas del auditor</Label>
-                <Textarea placeholder="Observaciones adicionales..." rows={2} />
-              </div>
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setWizardStep(2)}>Anterior</Button>
-                <Button variant="brand" onClick={() => setShowWizard(false)}>Guardar Hallazgo</Button>
-              </div>
+
+                  {/* Rejected — manual entry */}
+                  {iaDecision === 'rejected' && (
+                    <Card>
+                      <CardContent className="p-4 space-y-4">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">❌ Análisis rechazado — completa manualmente</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Empresa</Label>
+                            <Select><SelectTrigger><SelectValue placeholder="Seleccionar empresa" /></SelectTrigger>
+                              <SelectContent>{empresasUnicas.map(e => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>OC / Visita vinculada</Label>
+                            <Select><SelectTrigger><SelectValue placeholder="Seleccionar OC" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="oc1">OC-2026-001</SelectItem>
+                                <SelectItem value="oc2">OC-2026-002</SelectItem>
+                                <SelectItem value="oc3">OC-2026-003</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Área / Campo</Label>
+                            <Select><SelectTrigger><SelectValue placeholder="Seleccionar área" /></SelectTrigger>
+                              <SelectContent>{areasCampo.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Norma Aplicable</Label>
+                            <Select><SelectTrigger><SelectValue placeholder="Seleccionar norma" /></SelectTrigger>
+                              <SelectContent>{normasAplicables.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Clasificación</Label>
+                          <RadioGroup className="grid grid-cols-2 gap-2">
+                            {([['ncm', 'No Conformidad Mayor'], ['ncmin', 'No Conformidad Menor'], ['obs', 'Observación'], ['om', 'Oportunidad de Mejora']] as const).map(([val, label]) => (
+                              <div key={val} className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer hover:bg-muted/50">
+                                <RadioGroupItem value={val} id={`rej-${val}`} />
+                                <Label htmlFor={`rej-${val}`} className="cursor-pointer flex-1 text-sm">{label}</Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Nivel de Riesgo</Label>
+                          <RadioGroup className="flex gap-3">
+                            {([['alto', 'Alto', 'text-destructive'], ['medio', 'Medio', 'text-warning'], ['bajo', 'Bajo', 'text-success']] as const).map(([val, label, color]) => (
+                              <div key={val} className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer hover:bg-muted/50">
+                                <RadioGroupItem value={val} id={`rej-riesgo-${val}`} />
+                                <Label htmlFor={`rej-riesgo-${val}`} className={`cursor-pointer text-sm font-medium ${color}`}>{label}</Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Descripción del hallazgo</Label>
+                          <Textarea placeholder="Describe el hallazgo encontrado..." rows={3} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Recomendaciones</Label>
+                          <Textarea placeholder="Acciones correctivas y preventivas recomendadas..." rows={3} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Notas del auditor</Label>
+                          <Textarea placeholder="Observaciones adicionales..." rows={2} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Save button */}
+                  {iaDecision && (
+                    <div className="flex justify-between">
+                      <Button variant="outline" onClick={() => { setWizardStep(1); setIaResult(false); setIaDecision(null); }}>
+                        Anterior
+                      </Button>
+                      <Button variant="brand" onClick={() => { setShowWizard(false); setIaDecision(null); }}>
+                        Guardar Hallazgo
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </DialogContent>
